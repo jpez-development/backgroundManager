@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -17,26 +18,27 @@ namespace backgroundManager
     {
         private const UInt32 SPI_GETDESKWALLPAPER = 0x73;
         private const int MAX_PATH = 260;
+        string tempPath;
+
 
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         public static extern int SystemParametersInfo(UInt32 uAction, int uParam, string lpvParam, int fuWinIni);
 
-        private string FolderPath;
-        private List<string> Images = new List<string>();
-        private string DebugFile = Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + " debug.txt";
+        private List<string> Images;
 
         public MainWindow()
         {
             InitializeComponent();
-            init();
+            Init();
         }
 
-        private void init()
+        private void Init()
         {
+            Images = new List<string>();
             currentImage.Source = GetCurrentDesktopWallpaper();
-            LoadPreferences();
             PopulateImages();
             PopulateImageList(Images);
+            Topmost = true;
         }
 
         private ImageSource GetCurrentDesktopWallpaper()
@@ -52,36 +54,46 @@ namespace backgroundManager
             return bitmap;
         }
 
-        private void LoadPreferences()
+        private async void PopulateImages()
         {
-            try
-            {
-                FolderPath = System.IO.File.ReadAllText(@"FolderPath.txt");
-            }
-            catch (Exception e)
+            if (settings.Default.FirstTime)
             {
                 SetDirectory();
+                settings.Default.FirstTime = false;
             }
-            Folder_Path.Text = FolderPath;
-        }
+            try
+            {
+                Images.AddRange(Directory.GetFiles(settings.Default.FolderPath, "*.jpg"));
+            }
+            catch (ArgumentException)
+            {
+                while (settings.Default.FolderPath == "")
+                {
+                    await TaskDelay();
+                    SetDirectory();
+                }
+                Images.AddRange(Directory.GetFiles(settings.Default.FolderPath, "*.jpg"));
 
-        private void PopulateImages()
-        {
-            Images.AddRange(Directory.GetFiles(FolderPath, "*.jpg"));
-            Images.AddRange(Directory.GetFiles(FolderPath, "*.png"));
+            }
+            finally
+            {
+                Images.AddRange(Directory.GetFiles(settings.Default.FolderPath, "*.png"));
+            }
         }
 
         private void AddFile(object sender, RoutedEventArgs e)
         {
-            Microsoft.Win32.OpenFileDialog openFileDialog = new Microsoft.Win32.OpenFileDialog();
-            openFileDialog.Filter = "Images(*.BMP, *.JPG, *.GIF, *.PNG)| *.BMP; *.JPG; *.GIF; *.PNG";
-            openFileDialog.Title = "Select an Image";
+            Microsoft.Win32.OpenFileDialog openFileDialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "Images(*.BMP, *.JPG, *.GIF, *.PNG)| *.BMP; *.JPG; *.GIF; *.PNG",
+                Title = "Select an Image"
+            };
             if (openFileDialog.ShowDialog() == true)
             {
                 if ((System.IO.Path.GetExtension(openFileDialog.SafeFileName) == ".jpg") || (System.IO.Path.GetExtension(openFileDialog.SafeFileName) == ".png") || (System.IO.Path.GetExtension(openFileDialog.SafeFileName) == ".bmp") || (System.IO.Path.GetExtension(openFileDialog.SafeFileName) == ".gif"))
                 {
                     Images.Add(openFileDialog.SafeFileName);
-                    System.IO.File.Copy(openFileDialog.FileName, (FolderPath + "\\" + openFileDialog.SafeFileName));
+                    File.Copy(openFileDialog.FileName, (settings.Default.FolderPath + "\\" + openFileDialog.SafeFileName));
                     PopulateImageList(openFileDialog.SafeFileName);
                 }
                 else
@@ -119,7 +131,7 @@ namespace backgroundManager
         {
             foreach (string x in list)
             {
-                Image_List.Items.Add(System.IO.Path.GetFileName(x));
+                _ = Image_List.Items.Add(System.IO.Path.GetFileName(x));
             }
         }
 
@@ -130,7 +142,7 @@ namespace backgroundManager
                 string fileName = Image_List.SelectedItem.ToString();
                 BitmapImage bitmap = new BitmapImage();
                 bitmap.BeginInit();
-                bitmap.UriSource = new Uri(FolderPath + "\\" + fileName);
+                bitmap.UriSource = new Uri(settings.Default.FolderPath + "\\" + fileName);
                 bitmap.EndInit();
                 Manager_Image.Source = bitmap;
             }
@@ -141,9 +153,21 @@ namespace backgroundManager
             const int SPI_SETDESKWALLPAPER = 20;
             const int SPIF_UPDATEINIFILE = 0x01;
             const int SPIF_SENDWININICHANGE = 0x02;
-            string tempPath = FolderPath + "\\" + Image_List.SelectedItem.ToString();
-
-            SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, tempPath, SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE);
+            try
+            {
+                tempPath = settings.Default.FolderPath + "\\" + Image_List.SelectedItem.ToString();
+            }
+            catch (NullReferenceException)
+            {
+                _ = System.Windows.MessageBox.Show("No Wallpaper Selected!", "Error!", MessageBoxButton.OK);
+            }
+            finally
+            {
+                if (tempPath != null)
+                {
+                    _ = SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, tempPath, SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE);
+                }
+            }
         }
 
         private async void ChangeDirectory(object sender, RoutedEventArgs e)
@@ -151,8 +175,8 @@ namespace backgroundManager
             FolderBrowserDialog folderBrowser = new FolderBrowserDialog();
             if (folderBrowser.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
-                FolderPath = folderBrowser.SelectedPath;
-                Folder_Path.Text = FolderPath;
+                settings.Default.FolderPath = folderBrowser.SelectedPath;
+                Folder_Path.Text = settings.Default.FolderPath;
                 Change_Notify.Visibility = Visibility.Visible;
                 await TaskDelay();
                 Change_Notify.Visibility = Visibility.Hidden;
@@ -166,7 +190,7 @@ namespace backgroundManager
             const int SPIF_SENDWININICHANGE = 0x02;
             Random rnd = new Random();
 
-            string tempPath = FolderPath + "\\" + Images[rnd.Next(0, Images.Count)];
+            string tempPath = settings.Default.FolderPath + "\\" + Images[rnd.Next(0, Images.Count)];
 
             SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, tempPath, SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE);
         }
@@ -178,24 +202,26 @@ namespace backgroundManager
 
         private void CloseUpdate(object sender, CancelEventArgs e)
         {
-            DateTime dt = DateTime.Now;
-            string CurrentMonth = dt.ToString("MMM");
-            System.IO.File.WriteAllText(@"..\..\preferences\FolderPath.txt", FolderPath);
-            System.IO.File.WriteAllText(@"..\..\preferences\SavedMonth.txt", CurrentMonth);
+            settings.Default.SavedMonth = DateTime.Now.Month;
+
         }
 
         private async void SetDirectory()
         {
-            FolderBrowserDialog folderBrowser = new FolderBrowserDialog();
+            FolderBrowserDialog folderBrowser = new FolderBrowserDialog
+            {
+                Description = "Required! Select a folder path for your backgrounds",
+                ShowNewFolderButton = true
+            };
             if (folderBrowser.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
-                FolderPath = folderBrowser.SelectedPath;
-                Folder_Path.Text = FolderPath;
+                settings.Default.FolderPath = folderBrowser.SelectedPath;
+                Folder_Path.Text = settings.Default.FolderPath;
                 Change_Notify.Visibility = Visibility.Visible;
                 await TaskDelay();
                 Change_Notify.Visibility = Visibility.Hidden;
             }
         }
-    } 
+    }
 
 }
