@@ -5,8 +5,6 @@ VisualStudioVersion = 16.0.30907.101
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "backgroundManager", "backgroundManager.csproj", "{AF9312F4-1D1D-42CD-9051-1E2D73D80057}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "backgroundManagerService", "..\backgroundManagerService\backgroundManagerService.csproj", "{6E61BF5B-5B02-4118-964E-4B0892DA97EB}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -17,10 +15,6 @@ Global
 		{AF9312F4-1D1D-42CD-9051-1E2D73D80057}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AF9312F4-1D1D-42CD-9051-1E2D73D80057}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AF9312F4-1D1D-42CD-9051-1E2D73D80057}.Release|Any CPU.Build.0 = Release|Any CPU
-		{6E61BF5B-5B02-4118-964E-4B0892DA97EB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{6E61BF5B-5B02-4118-964E-4B0892DA97EB}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{6E61BF5B-5B02-4118-964E-4B0892DA97EB}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{6E61BF5B-5B02-4118-964E-4B0892DA97EB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
